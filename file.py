@@ -42,6 +42,7 @@ for file in files:
             hands.append(hand)
         
         # Now looping over all hands
+        test_hands = [hands[0]]
         for hand in hands:       
             # For each hand, line 6 shows the number of players. Get that information, it looks like Total number of players : 5
             players = (hand[5][-2])
@@ -55,7 +56,9 @@ for file in files:
                 
                 users[username] = {
                                     "pf_vpip": False,
-                                    "pf_pfr": False,                                      
+                                    "pf_pfr": False, 
+                                    "wtsd": False,   
+                                    "hand_entry": False,                                  
                                 }
             
             
@@ -71,13 +74,28 @@ for file in files:
                 # If the action is a call add to pf_vpip
                 if action == "calls":
                     users[username]["pf_vpip"] = True
+                    users[username]["hand_entry"] = True
                 # If the action is a raise add to pf_vpip and pf_pfr
                 elif action == "raises":
                     users[username]["pf_vpip"] = True
                     users[username]["pf_pfr"] = True
+                    users[username]["hand_entry"] = True
+                elif action == "checks":
+                    users[username]["hand_entry"] = True
                 
                 current_line += 1
                 
+            while hand[current_line] != "** Summary **\n":
+                # Split the line into parts
+                current_line += 1
+            
+            current_line += 1
+            for i in range(len(hand) - current_line):
+                line = hand[current_line + i]
+                parts = line.split()
+                username = parts[0]
+                users[username]["wtsd"] = True
+            
             # Now we have all the information for the hand, add it to the data dictionary
             for username in users:
                 if username not in data:
@@ -85,16 +103,21 @@ for file in files:
                                         "no_hands": 0,
                                         "pf_vpip": 0,
                                         "pf_pfr": 0,
+                                        "wtsd": 0,
+                                        "hand_entry": 0,
                                     }
                 
                 if users[username]["pf_vpip"]:
                     data[username]["pf_vpip"] += 1
                 if users[username]["pf_pfr"]:
                     data[username]["pf_pfr"] += 1
+                if users[username]["wtsd"]:
+                    data[username]["wtsd"] += 1
+                if users[username]["hand_entry"]:
+                    data[username]["hand_entry"] += 1
                 data[username]["no_hands"] += 1
                 
 # Input username to get stats
-
 while True:
     username = input("Enter a username: ")
 
@@ -103,9 +126,9 @@ while True:
         print(f"Number of hands: {data[username]['no_hands']}")
         print(f"PF_VPIP: {int(data[username]['pf_vpip'] / data[username]['no_hands'] * 100)}")
         print(f"PF_PFR: {int(data[username]['pf_pfr'] / data[username]['no_hands'] * 100)}")
+        print(f"WtSD: {int(data[username]['wtsd'] / data[username]['hand_entry'] * 100)}")
     else:
         print(f"No data available for username: {username}")
-
         
             
         
