@@ -1,6 +1,4 @@
 import os
-os.environ['TK_SILENCE_DEPRECATION'] = '1'
-import tkinter as tk
 
 def get_data():
     # Specify the path to your parent directory
@@ -20,10 +18,8 @@ def get_data():
     for file in files:
         # Open the file
         with open(os.path.join(parent_directory, file), "r") as f:
-            # Read the file and print the first line
-            line1 = f.readline()
-            
             # Discard all tournament files
+            line1 = f.readline()
             if line1[0] == "*":
                 continue
             
@@ -120,91 +116,6 @@ def get_data():
                         data[username]["hand_entry"] += 1
                     data[username]["no_hands"] += 1
     return data
-
-data = get_data()
-# Input username to get stats
-# while True:
-#     username = input("Enter a username: ")
-
-#     if username in data:
-#         print(f"Stats for {username}:")
-#         print(f"Number of hands: {data[username]['no_hands']}")
-#         print(f"PF_VPIP: {int(data[username]['pf_vpip'] / data[username]['no_hands'] * 100)}")
-#         print(f"PF_PFR: {int(data[username]['pf_pfr'] / data[username]['no_hands'] * 100)}")
-#         print(f"WtSD: {int(data[username]['wtsd'] / data[username]['hand_entry'] * 100)}")
-#     else:
-#         print(f"No data available for username: {username}")
-        
-        
-# Create the main window
-window = tk.Tk()
-
-usernames = [""]
-
-# Add a username
-def add_username():
-    usernames.append("")
-    create_user_boxes()
-
-# Remove username at specified index
-def remove_username(index):
-    usernames.pop(index)
-    
-# Update the username at specified index
-def update_username(index, value):
-    usernames[index] = value
-    
-# Get stats for all usernames
-def get_stats():
-    print("Getting stats")
-    print(usernames)
-    
-    
-# Create a list to store the StringVars
-username_vars = [tk.StringVar() for _ in usernames]
-
-def create_user_boxes():
-    for i, username_var in enumerate(username_vars):
-        # Make a frame for the user data
-        user_frame = tk.Frame(window, background="#FFDDFF", height=100, width = 200, borderwidth=2) 
-        user_frame.pack(fill='none', expand=True)
-        user_frame.pack_propagate(False)
-
-        # Set the initial value of the StringVar to the username
-        username_var.set(usernames[i])
-
-        # Create a function to update the username in the usernames list
-        def update_username(*args):
-            usernames[i] = username_var.get()
-
-        # Add a trace to the StringVar to call update_username when it changes
-        username_var.trace_add("write", update_username)
-
-        # Add a text field for the username
-        username_entry = tk.Entry(user_frame, textvariable=username_var)
-        username_entry.pack()
-
-# Create a button to add a username
-add_username_button = tk.Button(window, text="Add Username", command=add_username)
-add_username_button.pack()
-
-# Create a button to get stats
-get_stats_button = tk.Button(window, text="Get Stats", command=get_stats)
-get_stats_button.pack()
-
-
-
-#Actually running stuff
-create_user_boxes()
-
-
-
-# Start the main loop
-window.mainloop()
-
-        
-        
-        
         
         
 
