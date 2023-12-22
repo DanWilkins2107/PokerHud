@@ -139,42 +139,65 @@ data = get_data()
 # Create the main window
 window = tk.Tk()
 
-# Create a list to store the usernames and text fields
 usernames = [""]
-text_fields = []
 
-# Create a function to add a new text field
-def add_text_field():
+# Add a username
+def add_username():
     usernames.append("")
-    create_text_fields(usernames)
+    create_user_boxes()
 
-# Create a function to delete all text fields
-def delete_text_fields():
-    for text_field in text_fields:
-        text_field.destroy()
-    text_fields.clear()
+# Remove username at specified index
+def remove_username(index):
+    usernames.pop(index)
+    
+# Update the username at specified index
+def update_username(index, value):
+    usernames[index] = value
+    
+# Get stats for all usernames
+def get_stats():
+    print("Getting stats")
+    print(usernames)
+    
+    
+# Create a list to store the StringVars
+username_vars = [tk.StringVar() for _ in usernames]
 
-# Create a function to update the stats
-def refresh():
-    for username in usernames:
-        print(username)  # Replace this with your code to update the stats
+def create_user_boxes():
+    for i, username_var in enumerate(username_vars):
+        # Make a frame for the user data
+        user_frame = tk.Frame(window, background="#FFDDFF", height=100, width = 200, borderwidth=2) 
+        user_frame.pack(fill='none', expand=True)
+        user_frame.pack_propagate(False)
 
-# Create an add button
-add_button = tk.Button(window, text="Add", command=add_text_field, background="green")
-add_button.pack()
+        # Set the initial value of the StringVar to the username
+        username_var.set(usernames[i])
 
-# Create a refresh button
-refresh_button = tk.Button(window, text="Refresh", command=refresh, background="red")
-refresh_button.pack()
+        # Create a function to update the username in the usernames list
+        def update_username(*args):
+            usernames[i] = username_var.get()
 
-# Create a text field for each username
-def create_text_fields(username):
-    for username in usernames:
-        text_field = tk.Entry(window)
-        text_field.insert(0, username)  # Set the initial value to the username
-        text_field.pack()
-        
-create_text_fields(usernames)
+        # Add a trace to the StringVar to call update_username when it changes
+        username_var.trace_add("write", update_username)
+
+        # Add a text field for the username
+        username_entry = tk.Entry(user_frame, textvariable=username_var)
+        username_entry.pack()
+
+# Create a button to add a username
+add_username_button = tk.Button(window, text="Add Username", command=add_username)
+add_username_button.pack()
+
+# Create a button to get stats
+get_stats_button = tk.Button(window, text="Get Stats", command=get_stats)
+get_stats_button.pack()
+
+
+
+#Actually running stuff
+create_user_boxes()
+
+
 
 # Start the main loop
 window.mainloop()
