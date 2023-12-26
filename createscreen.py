@@ -5,7 +5,7 @@ window = tk.Tk()
 window.title("Poker HUD")
 
 frame_width = 200
-frame_height = 125
+frame_height = 150
 
 def createString(username, data):
     if username in data:
@@ -14,7 +14,8 @@ def createString(username, data):
         pfrString = "\nPFR: " + str(round(data[username]["pf_pfr"] * 100 /data[username]["no_hands"])) + "%"
         threeBetString = "\n3Bet: " + str(data[username]["pf_3bet"]) + "/" + str(data[username]["pf_3bet_opp"])
         threeBetFoldString = "\n3Bet Fold: " + str(data[username]["pf_3bet_fold"]) + "/" + str(data[username]["pf_3bet_recieved"])
-        return no_handsString + vpipString + pfrString + threeBetString + threeBetFoldString
+        sbRaiseString = "\n SB(R, L): " + "(" + str(data[username]["sb_raise"]) + ", " + str(data[username]["sb_limp"]) + ")" + "/" + str(data[username]["sb_raise_opp"])
+        return no_handsString + vpipString + pfrString + threeBetString + threeBetFoldString + sbRaiseString
     else:
         return "Player not found"
 
