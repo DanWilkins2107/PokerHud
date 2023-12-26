@@ -1,36 +1,31 @@
 from datafetch import get_data
 import tkinter as tk
-import time
 
 window = tk.Tk()
 window.title("Poker HUD")
 
 frame_width = 200
-frame_height = 100
+frame_height = 125
+
+def createString(username, data):
+    if username in data:
+        no_handsString = "No. Hands: " + str(data[username]["no_hands"])
+        vpipString = "\nVPIP: " + str(round(data[username]["pf_vpip"] * 100 /data[username]["no_hands"])) + "%"
+        pfrString = "\nPFR: " + str(round(data[username]["pf_pfr"] * 100 /data[username]["no_hands"])) + "%"
+        threeBetString = "\n3Bet: " + str(data[username]["pf_3bet"]) + "/" + str(data[username]["pf_3bet_opp"])
+        threeBetFoldString = "\n3Bet Fold: " + str(data[username]["pf_3bet_fold"]) + "/" + str(data[username]["pf_3bet_recieved"])
+        return no_handsString + vpipString + pfrString + threeBetString + threeBetFoldString
+    else:
+        return "Player not found"
 
 #Function to update stats
 def updateStats():
     data = get_data()
-    if player_1_nameVar.get() in data:
-        player_1_statString_val.set("No of Hands: "+ str(data[player_1_nameVar.get()]["no_hands"]) + "\nVPIP: " + str(data[player_1_nameVar.get()]["pf_vpip"]) + "\nPFR: " + str(data[player_1_nameVar.get()]["pf_pfr"]) + "\nWtSD: " + str(data[player_1_nameVar.get()]["wtsd"]))
-    else:
-        player_1_statString_val.set("Player not found")
-    if player_2_nameVar.get() in data:
-        player_2_statString_val.set("No of Hands: "+ str(data[player_2_nameVar.get()]["no_hands"]) + "\nVPIP: " + str(data[player_2_nameVar.get()]["pf_vpip"]) + "\nPFR: " + str(data[player_2_nameVar.get()]["pf_pfr"]) + "\nWtSD: " + str(data[player_2_nameVar.get()]["wtsd"]))
-    else:
-        player_2_statString_val.set("Player not found")
-    if player_3_nameVar.get() in data:
-        player_3_statString_val.set("No of Hands: "+ str(data[player_3_nameVar.get()]["no_hands"]) + "\nVPIP: " + str(data[player_3_nameVar.get()]["pf_vpip"]) + "\nPFR: " + str(data[player_3_nameVar.get()]["pf_pfr"]) + "\nWtSD: " + str(data[player_3_nameVar.get()]["wtsd"]))
-    else:
-        player_3_statString_val.set("Player not found")
-    if player_4_nameVar.get() in data:
-        player_4_statString_val.set("No of Hands: "+ str(data[player_4_nameVar.get()]["no_hands"]) + "\nVPIP: " + str(data[player_4_nameVar.get()]["pf_vpip"]) + "\nPFR: " + str(data[player_4_nameVar.get()]["pf_pfr"]) + "\nWtSD: " + str(data[player_4_nameVar.get()]["wtsd"]))
-    else:
-        player_4_statString_val.set("Player not found")
-    if player_5_nameVar.get() in data:
-        player_5_statString_val.set("No of Hands: "+ str(data[player_5_nameVar.get()]["no_hands"]) + "\nVPIP: " + str(data[player_5_nameVar.get()]["pf_vpip"]) + "\nPFR: " + str(data[player_5_nameVar.get()]["pf_pfr"]) + "\nWtSD: " + str(data[player_5_nameVar.get()]["wtsd"]))
-    else:
-        player_5_statString_val.set("Player not found")
+    player_1_statString_val.set(createString(player_1_nameVar.get(), data))
+    player_2_statString_val.set(createString(player_2_nameVar.get(), data))
+    player_3_statString_val.set(createString(player_3_nameVar.get(), data))
+    player_4_statString_val.set(createString(player_4_nameVar.get(), data))
+    player_5_statString_val.set(createString(player_5_nameVar.get(), data))
 
     
 
