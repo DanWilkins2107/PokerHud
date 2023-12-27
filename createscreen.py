@@ -15,7 +15,9 @@ def createString(username, data):
         threeBetString = "\n3Bet: " + str(data[username]["pf_3bet"]) + "/" + str(data[username]["pf_3bet_opp"])
         threeBetFoldString = "\n3Bet Fold: " + str(data[username]["pf_3bet_fold"]) + "/" + str(data[username]["pf_3bet_recieved"])
         sbRaiseString = "\n SB(R, L): " + "(" + str(data[username]["sb_raise"]) + ", " + str(data[username]["sb_limp"]) + ")" + "/" + str(data[username]["sb_raise_opp"])
-        return no_handsString + vpipString + pfrString + threeBetString + threeBetFoldString + sbRaiseString
+        bbString = "\n BB(F, C, R): " + "(" + str(data[username]["sb_raise_fold"]) + ", " + str(data[username]["sb_raise_call"]) + ", " + str(data[username]["sb_raise_raise"]) + ")" + "/" + str(data[username]["sb_raise_recieved"])
+        return no_handsString + vpipString + pfrString + threeBetString + threeBetFoldString + sbRaiseString + bbString
+    
     else:
         return "Player not found"
 

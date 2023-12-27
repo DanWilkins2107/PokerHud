@@ -4,6 +4,8 @@ from pfrcalculator import pfrCalc
 from threebetcalculator import threeBetCalc
 from threebetfoldcalculator import threeBetFoldCalc
 from sbraisecalculator import sbraiseCalc
+from sbraisefoldcalculator import sbraisefoldCalc
+from afcalculator import afCalc
 
 def get_data():
     # Specify the path to your parent directory
@@ -20,7 +22,7 @@ def get_data():
 
     data = {}
 
-    for file in files:
+    for file in test_files:
         # Open the file
         with open(os.path.join(parent_directory, file), "r") as f:
             # Discard all tournament files
@@ -47,8 +49,8 @@ def get_data():
                 hands.append(hand)
             
             # Now looping over all hands
-            test_hands = hands[0:10]
-            for hand in hands:       
+            test_hands = hands[0:5]
+            for hand in test_hands:       
                 players = (hand[5][-2])
                 usernames = []
                 for i in range(int(players)):
@@ -63,6 +65,8 @@ def get_data():
                     threeBet = threeBetCalc(hand, usernames)
                     threeBetFold = threeBetFoldCalc(hand, usernames)
                     sbRaise = sbraiseCalc(hand, usernames)
+                    sbRaiseFold = sbraisefoldCalc(hand, usernames)
+                    af = afCalc(hand, usernames)
                 except:
                     continue
                 
@@ -80,6 +84,10 @@ def get_data():
                                             "sb_limp": 0,
                                             "sb_raise": 0,
                                             "sb_raise_opp": 0,
+                                            "sb_raise_recieved": 0,
+                                            "sb_raise_fold": 0,
+                                            "sb_raise_call": 0,
+                                            "sb_raise_raise": 0,
                                         }
                     if vpip[username]["vpip"]:
                         data[username]["pf_vpip"] += 1
@@ -99,10 +107,15 @@ def get_data():
                         data[username]["sb_raise"] += 1
                     if sbRaise[username]["sb_raise_opp"]:
                         data[username]["sb_raise_opp"] += 1
-                    
+                    if sbRaiseFold[username]["sb_raise_recieved"]:
+                        data[username]["sb_raise_recieved"] += 1
+                    if sbRaiseFold[username]["sb_raise_fold"]:
+                        data[username]["sb_raise_fold"] += 1
+                    if sbRaiseFold[username]["sb_raise_call"]:
+                        data[username]["sb_raise_call"] += 1
+                    if sbRaiseFold[username]["sb_raise_raise"]:
+                        data[username]["sb_raise_raise"] += 1
                     data[username]["no_hands"] += 1
     return data
 
 data = get_data()
-        
-

@@ -27,8 +27,9 @@ def threeBetCalc(hand, usernames):
         
         if action == "raises":
             raisers.append(current_user)
-            output[current_user]["pf_3bet"] = True
-    
+            if len(raisers) == 2:
+                output[current_user]["pf_3bet"] = True
+                
         current_line += 1
     
     return output
