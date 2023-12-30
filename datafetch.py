@@ -22,7 +22,7 @@ def get_data():
 
     data = {}
 
-    for file in test_files:
+    for file in files:
         # Open the file
         with open(os.path.join(parent_directory, file), "r") as f:
             # Discard all tournament files
@@ -50,7 +50,7 @@ def get_data():
             
             # Now looping over all hands
             test_hands = hands[0:5]
-            for hand in test_hands:       
+            for hand in hands:       
                 players = (hand[5][-2])
                 usernames = []
                 for i in range(int(players)):
@@ -88,6 +88,8 @@ def get_data():
                                             "sb_raise_fold": 0,
                                             "sb_raise_call": 0,
                                             "sb_raise_raise": 0,
+                                            "af_calls": 0,
+                                            "af_bets/raises": 0,
                                         }
                     if vpip[username]["vpip"]:
                         data[username]["pf_vpip"] += 1
@@ -115,6 +117,8 @@ def get_data():
                         data[username]["sb_raise_call"] += 1
                     if sbRaiseFold[username]["sb_raise_raise"]:
                         data[username]["sb_raise_raise"] += 1
+                    data[username]["af_calls"] += af[username]["calls"]
+                    data[username]["af_bets/raises"] += af[username]["bets/raises"]
                     data[username]["no_hands"] += 1
     return data
 

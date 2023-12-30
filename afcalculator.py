@@ -17,7 +17,7 @@ def afCalc(hand, usernames):
                 output[player]["calls"] += 1
             elif action == "bets" or action == "raises":
                 output[player]["bets/raises"] += 1
-    print(str(reached_flop))
-    print(output)
+    return output
+    
         
             
