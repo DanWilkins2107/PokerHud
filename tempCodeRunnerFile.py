@@ -1,2 +1,1 @@
-
-                        
+wts = wtsCalc(hand, usernames)

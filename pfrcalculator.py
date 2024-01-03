@@ -24,5 +24,6 @@ def pfrCalc(hand, usernames):
     
         current_line += 1
         
+        
     return output
     
