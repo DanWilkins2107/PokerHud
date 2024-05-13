@@ -1,52 +1,42 @@
 import sys
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
+from PyQt5 import QtWidgets, QtCore, QtGui
 
-class CustomWindow(QWidget):
+class TransparentWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        # Window settings
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setAttribute(Qt.WA_NoSystemBackground)
+        # Make the window frameless and transparent
+        self.setWindowFlags(
+            QtCore.Qt.FramelessWindowHint  # Removes the window frame
+            | QtCore.Qt.Tool  # Hides the taskbar icon
+            | QtCore.Qt.WindowStaysOnTopHint  # Always keeps the window on top
+        )
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)  # Makes the background transparent
 
-        # Custom title bar
-        self.title_bar = QWidget(self)
-        self.title_bar.setFixedSize(400, 30)
-        self.title_bar.setStyleSheet("background: rgba(0, 0, 0, 100);")  # Semi-transparent black
-        self.title_bar_layout = QHBoxLayout(self.title_bar)
-        self.title_bar_layout.setContentsMargins(0, 0, 0, 0)
+        # Create a main container widget
+        self.container = QtWidgets.QWidget(self)
+        self.container.setStyleSheet("background-color: transparent; border: 2px solid black;")
+        self.container.setGeometry(0, 0, 300, 200)  # Set the size of the container
 
-        # Title Label
-        title = QLabel("Custom Title Bar", self.title_bar)
-        self.title_bar_layout.addWidget(title)
+        # Create a draggable button
+        button = QtWidgets.QPushButton("Drag me!", self.container)
+        button.move(0, 0)  # Set the initial position of the button
+        button.resize(300, 30)  # Set the size of the button
+        button.setStyleSheet("background-color: gray;")
 
-        # Close Button
-        close_button = QPushButton("X", self.title_bar)
-        close_button.clicked.connect(app.quit)
-        self.title_bar_layout.addWidget(close_button)
+        # Enable drag and drop for the button
+        button.mousePressEvent = self.button_mouse_press_event
+        button.mouseMoveEvent = self.button_mouse_move_event
 
-        # Enable dragging
-        self.old_pos = None
+    def button_mouse_press_event(self, event):
+        self.drag_start_pos = event.pos()
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.old_pos = event.globalPos()
+    def button_mouse_move_event(self, event):
+        if event.buttons() == QtCore.Qt.LeftButton:
+            self.move(event.globalPos() - self.drag_start_pos)
 
-    def mouseMoveEvent(self, event):
-        if not self.old_pos:
-            return
-        delta = QPoint(event.globalPos() - self.old_pos)
-        self.move(self.x() + delta.x(), self.y() + delta.y())
-        self.old_pos = event.globalPos()
-
-    def mouseReleaseEvent(self, event):
-        self.old_pos = None
-
-app = QApplication(sys.argv)
-window = CustomWindow()
-window.resize(400, 200)
-window.show()
-sys.exit(app.exec_())
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(sys.argv)
+    window = TransparentWindow()
+    window.show()
+    sys.exit(app.exec_())
