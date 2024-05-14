@@ -5,6 +5,10 @@ class TransparentWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
+        # Set the minimum width and height
+        self.min_width = 400
+        self.min_height = 300
+
         # Make the window frameless and transparent
         self.setWindowFlags(
             QtCore.Qt.FramelessWindowHint  # Removes the window frame
@@ -63,8 +67,8 @@ class TransparentWindow(QtWidgets.QWidget):
     def resize_handle_br_mouse_move_event(self, event):
         if event.buttons() == QtCore.Qt.LeftButton:
             delta = event.globalPos() - self.resize_start_pos
-            new_width = max(self.resize_start_width + delta.x(), 200)  # Minimum width is 200
-            new_height = max(self.resize_start_height + delta.y(), 100)  # Minimum height is 100
+            new_width = max(self.resize_start_width + delta.x(), self.min_width)
+            new_height = max(self.resize_start_height + delta.y(), self.min_height)
             self.resize(new_width, new_height)
             self.container.resize(new_width, new_height)
             self.button.resize(new_width, 30)  # Resize the button to match the new width
@@ -81,10 +85,9 @@ class TransparentWindow(QtWidgets.QWidget):
         if event.buttons() == QtCore.Qt.LeftButton:
             delta = event.globalPos() - self.resize_start_pos
             old_width = self.width()
-            new_width = max(self.resize_start_width - delta.x(), 200)  # Minimum width is 200
-            new_height = max(self.resize_start_height + delta.y(), 100)  # Minimum height is 100
-            if new_width != old_width:
-                self.move(self.x() + (old_width - new_width), self.y())
+            new_width = max(self.resize_start_width - delta.x(), self.min_width)
+            new_height = max(self.resize_start_height + delta.y(), self.min_height)
+            self.move(self.x() + (old_width - new_width), self.y())
             self.resize(new_width, new_height)
             self.container.resize(new_width, new_height)
             self.button.resize(new_width, 30)  # Resize the button to match the new width
