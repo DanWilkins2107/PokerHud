@@ -85,7 +85,7 @@ class TransparentWindow(QtWidgets.QWidget):
         self.name_zone_labels = []
         self.active_name_zone = 0
         self.remove_name_zone_on_release = False
-        self.default_name_zone_size = {'width': 100, 'height': 50}
+        self.default_name_zone_size = {'width': 20, 'height': 10}
 
     def button_mouse_press_event(self, event):
         self.drag_start_pos = event.pos()
@@ -221,10 +221,10 @@ class TransparentWindow(QtWidgets.QWidget):
 
     def add_name_zone_clicked(self):
         name_zone = {
-            'x': 10,
-            'y': 60,
-            'width': self.default_name_zone_size['width'],
-            'height': self.default_name_zone_size['height']
+            'x': 5,  # Relative x position (5%)
+            'y': 15,  # Relative y position (15%)
+            'width': self.default_name_zone_size['width'],  # Relative width
+            'height': self.default_name_zone_size['height']  # Relative height
         }
         self.name_zones.append(name_zone)
         self.update_name_zones()
@@ -243,8 +243,13 @@ class TransparentWindow(QtWidgets.QWidget):
         self.name_zone_labels = []
 
         for i, name_zone in enumerate(self.name_zones):
+            x = int((name_zone['x'] / 100) * self.container.width())
+            y = int((name_zone['y'] / 100) * self.container.height())
+            width = int((name_zone['width'] / 100) * self.container.width())
+            height = int((name_zone['height'] / 100) * self.container.height())
+
             label = QtWidgets.QLabel(self.container)
-            label.setGeometry(name_zone['x'], name_zone['y'], name_zone['width'], name_zone['height'])
+            label.setGeometry(x, y, width, height)
             if i == self.active_name_zone:
                 label.setStyleSheet("background-color: rgba(0, 255, 0, 0.7); border: 2px solid rgb(0, 0, 0);")
             else:
@@ -258,7 +263,7 @@ class TransparentWindow(QtWidgets.QWidget):
 
             # Create a resize handle for the label
             resize_handle = QtWidgets.QLabel(label)
-            resize_handle.move(name_zone['width'] - 20, name_zone['height'] - 20)
+            resize_handle.move(width - 20, height - 20)
             resize_handle.resize(20, 20)
             resize_handle.setStyleSheet("background-color: gray;")
             resize_handle.show()
@@ -266,7 +271,7 @@ class TransparentWindow(QtWidgets.QWidget):
             # Enable resize for the resize handle
             resize_handle.mousePressEvent = lambda event, label=label, resize_handle=resize_handle: self.resize_handle_mouse_press_event(event, label, resize_handle)
             resize_handle.mouseMoveEvent = lambda event, label=label, resize_handle=resize_handle: self.resize_handle_mouse_move_event(event, label, resize_handle)
-            
+
     def resize_handle_mouse_press_event(self, event, label, resize_handle):
         self.resize_start_pos = event.globalPos()
         self.resize_start_width = label.width()
@@ -282,10 +287,10 @@ class TransparentWindow(QtWidgets.QWidget):
 
             for i, name_zone in enumerate(self.name_zones):
                 if self.name_zone_labels[i] == label:
-                    self.name_zones[i]['width'] = new_width
-                    self.name_zones[i]['height'] = new_height
-                    self.default_name_zone_size['width'] = new_width
-                    self.default_name_zone_size['height'] = new_height
+                    self.name_zones[i]['width'] = (new_width / self.container.width()) * 100
+                    self.name_zones[i]['height'] = (new_height / self.container.height()) * 100
+                    self.default_name_zone_size['width'] = (new_width / self.container.width()) * 100
+                    self.default_name_zone_size['height'] = (new_height / self.container.height()) * 100
 
     def label_mouse_press_event(self, event, label):
         self.drag_start_pos = event.pos()
@@ -301,15 +306,14 @@ class TransparentWindow(QtWidgets.QWidget):
 
             for i, name_zone in enumerate(self.name_zones):
                 if self.name_zone_labels[i] == self.drag_label:
-                    self.name_zones[i]['x'] = new_x
-                    self.name_zones[i]['y'] = new_y
+                    self.name_zones[i]['x'] = (new_x / self.container.width()) * 100
+                    self.name_zones[i]['y'] = (new_y / self.container.height()) * 100
 
                     if new_x < 0 or new_y < 0 or new_x + name_zone['width'] > self.width() or new_y + name_zone['height'] > self.height():
                         self.remove_name_zone_on_release = True
                         return
                     self.remove_name_zone_on_release = False
                 
-
     def label_mouse_release_event(self, event, label):
         if self.remove_name_zone_on_release:
             self.name_zones.pop(self.active_name_zone)
