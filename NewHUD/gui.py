@@ -1,47 +1,282 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QHBoxLayout, QLabel, QStyle
-from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtCore import QFile, QSettings
+from PyQt5 import QtWidgets, QtCore
+from namezone import NameZone
 
-class MainWindow(QWidget):
+class TransparentWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.settings = QSettings("YourCompany", "YourApp")
+        # Set the minimum width and height
+        self.min_width = 700
+        self.min_height = 400
+        self.bar_height = 60
+        self.initial_width = 800
+        self.initial_height = 500
+        self.name_zones_confirmed = False
 
-        self.folder_path = self.settings.value("folder_path", "")
+        # Make the window frameless and transparent
+        self.setWindowFlags(
+            QtCore.Qt.FramelessWindowHint  # Removes the window frame
+            | QtCore.Qt.Tool  # Hides the taskbar icon
+            | QtCore.Qt.WindowStaysOnTopHint  # Always keeps the window on top
+        )
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)  # Makes the background transparent
 
-        self.layout = QVBoxLayout()
-        self.setLayout(self.layout)
+        # Create a main container widget
+        self.container = QtWidgets.QWidget(self)
+        self.container.setStyleSheet("background-color: transparent; border: 2px solid black;")
+        self.container.setGeometry(0, 0, self.initial_width, self.initial_height)  # Set the size of the container
 
-        self.logo_label = QLabel()
-        pixmap = QPixmap('logo.png')
-        self.logo_label.setPixmap(pixmap)
-        self.layout.addWidget(self.logo_label)
+        # Create a draggable button
+        self.button = QtWidgets.QPushButton("", self.container)
+        self.button.move(0, 0)  # Set the initial position of the button
+        self.button.resize(self.initial_width, self.bar_height)  # Set the size of the button
+        self.button.setStyleSheet("background-color: gray;")
 
-        self.path_layout = QHBoxLayout()
-        self.layout.addLayout(self.path_layout)
+        # Enable drag and drop for the button
+        self.button.mousePressEvent = self.button_mouse_press_event
+        self.button.mouseMoveEvent = self.button_mouse_move_event
 
-        self.path_input = QLineEdit()
-        self.path_input.setReadOnly(True)
-        self.path_input.setToolTip("")
-        self.path_input.setText(self.folder_path)
-        self.path_layout.addWidget(self.path_input)
+        # Create buttons on the bar
+        self.toggle_sidebar_button = QtWidgets.QPushButton("Toggle Sidebar", self.container)
+        self.toggle_sidebar_button.move(10, 10)
+        self.toggle_sidebar_button.resize(150, 40)
+        self.toggle_sidebar_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.toggle_sidebar_button.clicked.connect(self.toggle_sidebar_clicked)
 
-        self.button = QPushButton()
-        self.button.setIcon(self.style().standardIcon(getattr(QStyle, 'SP_DirIcon')))
-        self.button.clicked.connect(self.open_folder)
-        self.path_layout.addWidget(self.button)
+        self.toggle_overlay_button = QtWidgets.QPushButton("Toggle Overlay", self.container)
+        self.toggle_overlay_button.move(170, 10)
+        self.toggle_overlay_button.resize(150, 40)
+        self.toggle_overlay_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.toggle_overlay_button.clicked.connect(self.toggle_overlay_clicked)
 
-    def open_folder(self):
-        self.folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", self.folder_path)
-        self.path_input.setText(self.folder_path)
-        self.path_input.setToolTip(self.folder_path)
-        self.settings.setValue("folder_path", self.folder_path)
-        print("Folder path:", self.folder_path)
+        self.edit_name_zones_button = QtWidgets.QPushButton("Edit Name Zones", self.container)
+        self.edit_name_zones_button.move(self.initial_width - 280, 10)
+        self.edit_name_zones_button.resize(160, 40)
+        self.edit_name_zones_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.edit_name_zones_button.clicked.connect(self.edit_name_zones_clicked)
+
+        self.settings_button = QtWidgets.QPushButton("Settings", self.container)
+        self.settings_button.move(self.initial_width - 110, 10)
+        self.settings_button.resize(100, 40)
+        self.settings_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.settings_button.clicked.connect(self.settings_clicked)
+
+        # Create a resize handle (bottom right)
+        self.resize_handle_br = QtWidgets.QLabel(self.container)
+        self.resize_handle_br.move(self.initial_width - 20, self.initial_height - 20)  # Set the initial position of the resize handle
+        self.resize_handle_br.resize(20, 20)  # Set the size of the resize handle
+        self.resize_handle_br.setStyleSheet("background-color: gray;")
+
+        # Enable resize for the resize handle (bottom right)
+        self.resize_handle_br.mousePressEvent = self.resize_handle_br_mouse_press_event
+        self.resize_handle_br.mouseMoveEvent = self.resize_handle_br_mouse_move_event
+
+        # Create a resize handle (bottom left)
+        self.resize_handle_bl = QtWidgets.QLabel(self.container)
+        self.resize_handle_bl.move(0, self.initial_height - 20)  # Set the initial position of the resize handle
+        self.resize_handle_bl.resize(20, 20)  # Set the size of the resize handle
+        self.resize_handle_bl.setStyleSheet("background-color: gray;")
+
+        # Enable resize for the resize handle (bottom left)
+        self.resize_handle_bl.mousePressEvent = self.resize_handle_bl_mouse_press_event
+        self.resize_handle_bl.mouseMoveEvent = self.resize_handle_bl_mouse_move_event
+
+        self.name_zones = []
+        self.name_zone_labels = []
+
+    def button_mouse_press_event(self, event):
+        self.drag_start_pos = event.pos()
+
+    def button_mouse_move_event(self, event):
+        if event.buttons() == QtCore.Qt.LeftButton:
+            self.move(event.globalPos() - self.drag_start_pos)
+
+    def resize_handle_br_mouse_press_event(self, event):
+        self.resize_start_pos = event.globalPos()
+        self.resize_start_width = self.width()
+        self.resize_start_height = self.height()
+
+    def resize_handle_br_mouse_move_event(self, event):
+        if event.buttons() == QtCore.Qt.LeftButton:
+            delta = event.globalPos() - self.resize_start_pos
+            new_width = max(self.resize_start_width + delta.x(), self.min_width)
+            new_height = max(self.resize_start_height + delta.y(), self.min_height)
+            self.resize(new_width, new_height)
+            self.container.resize(new_width, new_height)
+            self.button.resize(new_width, self.bar_height)  # Resize the button to match the new width
+            self.resize_handle_br.move(new_width - 20, new_height - 20)  # Move the resize handle to the bottom right corner
+            self.resize_handle_bl.move(0, new_height - 20)  # Move the resize handle to the bottom left corner
+            self.toggle_sidebar_button.move(10, 10)
+            self.toggle_overlay_button.move(170, 10)
+            self.edit_name_zones_button.move(new_width - 280, 10)
+            self.settings_button.move(new_width - 110, 10)
+
+    def resize_handle_bl_mouse_press_event(self, event):
+        self.resize_start_pos = event.globalPos()
+        self.resize_start_width = self.width()
+        self.resize_start_height = self.height()
+        self.resize_start_x = self.x()
+
+    def resize_handle_bl_mouse_move_event(self, event):
+        if event.buttons() == QtCore.Qt.LeftButton:
+            delta = event.globalPos() - self.resize_start_pos
+            old_width = self.width()
+            new_width = max(self.resize_start_width - delta.x(), self.min_width)
+            new_height = max(self.resize_start_height + delta.y(), self.min_height)
+            self.move(self.x() + (old_width - new_width), self.y())
+            self.resize(new_width, new_height)
+            self.container.resize(new_width, new_height)
+            self.button.resize(new_width, self.bar_height)  # Resize the button to match the new width
+            self.resize_handle_br.move(new_width - 20, new_height - 20)  # Move the resize handle to the bottom right corner
+            self.resize_handle_bl.move(0, new_height - 20)  # Move the resize handle to the bottom left corner
+            self.toggle_sidebar_button.move(10, 10)
+            self.toggle_overlay_button.move(170, 10)
+            self.edit_name_zones_button.move(new_width - 280, 10)
+            self.settings_button.move(new_width - 110, 10)
+
+    def toggle_sidebar_clicked(self):
+        print("Toggle sidebar clicked")
+
+    def toggle_overlay_clicked(self):
+        # For now, take a screenshot
+        print("Toggle overlay clicked")
+        self.take_screenshot()
+
+    def edit_name_zones_clicked(self):
+        if not self.name_zones_confirmed:
+            self.toggle_sidebar_button.deleteLater()
+            self.toggle_overlay_button.deleteLater()
+            self.edit_name_zones_button.deleteLater()
+            self.settings_button.deleteLater()
+
+            self.add_name_zone_button = QtWidgets.QPushButton("Add Name Zone", self.container)
+            self.add_name_zone_button.move(10, 10)
+            self.add_name_zone_button.resize(150, 40)
+            self.add_name_zone_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+            self.add_name_zone_button.clicked.connect(self.add_name_zone_clicked)
+            self.add_name_zone_button.show()
+
+            self.remove_name_zone_button = QtWidgets.QPushButton("Remove Name Zone", self.container)
+            self.remove_name_zone_button.move(170, 10)
+            self.remove_name_zone_button.resize(150, 40)
+            self.remove_name_zone_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+            self.remove_name_zone_button.clicked.connect(self.remove_name_zone_clicked)
+            self.remove_name_zone_button.show()
+
+            self.confirm_button = QtWidgets.QPushButton("Confirm", self.container)
+            self.confirm_button.move(self.initial_width - 110, 10)
+            self.confirm_button.resize(100, 40)
+            self.confirm_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+            self.confirm_button.clicked.connect(self.confirm_clicked)
+            self.confirm_button.show()
+
+            self.container.setStyleSheet("background-color: rgba(255, 255, 255, 0.1); border: 2px solid black;")
+
+            self.name_zones_confirmed = True
+            for label in self.name_zone_labels:
+                label.show()
+
+    def confirm_clicked(self):
+        self.add_name_zone_button.deleteLater()
+        self.remove_name_zone_button.deleteLater()
+        self.confirm_button.deleteLater()
+
+        for label in self.name_zone_labels:
+            label.hide()
+
+        self.container.setStyleSheet("background-color: transparent; border: 2px solid black;")
+
+        self.name_zones_confirmed = False
+
+        self.toggle_sidebar_button = QtWidgets.QPushButton("Toggle Sidebar", self.container)
+        self.toggle_sidebar_button.move(10, 10)
+        self.toggle_sidebar_button.resize(150, 40)
+        self.toggle_sidebar_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.toggle_sidebar_button.clicked.connect(self.toggle_sidebar_clicked)
+        self.toggle_sidebar_button.show()
+
+        self.toggle_overlay_button = QtWidgets.QPushButton("Toggle Overlay", self.container)
+        self.toggle_overlay_button.move(170, 10)
+        self.toggle_overlay_button.resize(150, 40)
+        self.toggle_overlay_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.toggle_overlay_button.clicked.connect(self.toggle_overlay_clicked)
+        self.toggle_overlay_button.show()
+
+        self.edit_name_zones_button = QtWidgets.QPushButton("Edit Name Zones", self.container)
+        self.edit_name_zones_button.move(self.initial_width - 280, 10)
+        self.edit_name_zones_button.resize(160, 40)
+        self.edit_name_zones_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.edit_name_zones_button.clicked.connect(self.edit_name_zones_clicked)
+        self.edit_name_zones_button.show()
+
+        self.settings_button = QtWidgets.QPushButton("Settings", self.container)
+        self.settings_button.move(self.initial_width - 110, 10)
+        self.settings_button.resize(100, 40)
+        self.settings_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.settings_button.clicked.connect(self.settings_clicked)
+        self.settings_button.show()
+
+    def add_name_zone_clicked(self):
+        name_zone = {
+            'x': 10,
+            'y': 60,
+            'width': 100,
+            'height': 50
+        }
+        self.name_zones.append(name_zone)
+        self.update_name_zones()
+
+
+    def remove_name_zone_clicked(self):
+        if self.name_zones:
+            self.name_zones.pop()
+            self.update_name_zones()
+        print(self.name_zones)
+    
+    def update_name_zones(self):
+        for label in self.name_zone_labels:
+            label.deleteLater()
+        self.name_zone_labels = []
+
+        for i, name_zone in enumerate(self.name_zones):
+            label = QtWidgets.QLabel(self.container)
+            label.move(name_zone['x'], name_zone['y'])
+            label.resize(name_zone['width'], name_zone['height'])
+            label.setStyleSheet("background-color: rgba(128, 128, 128, 0.5); border: 1px solid black;")
+            label.show()
+            self.name_zone_labels.append(label)
+
+            label.mousePressEvent = lambda event, label=label: self.label_mouse_press_event(event, label)
+            label.mouseMoveEvent = lambda event, label=label: self.label_mouse_move_event(event, label)
+
+    def label_mouse_press_event(self, event, label):
+        self.drag_start_pos = event.pos()
+        self.drag_label = label
+
+    def label_mouse_move_event(self, event, label):
+        if event.buttons() == QtCore.Qt.LeftButton:
+            delta = event.pos() - self.drag_start_pos
+            new_x = self.drag_label.x() + delta.x()
+            new_y = self.drag_label.y() + delta.y()
+            self.drag_label.move(new_x, new_y)
+
+            for i, name_zone in enumerate(self.name_zones):
+                if self.name_zone_labels[i] == self.drag_label:
+                    self.name_zones[i]['x'] = new_x
+                    self.name_zones[i]['y'] = new_y
+
+
+    def settings_clicked(self):
+        print("Settings clicked")
+
+    def take_screenshot(self):
+        screen = QtWidgets.QApplication.screenAt(self.pos())
+        screenshot = screen.grabWindow(0, self.x(), self.y(), self.width(), self.height())
+        screenshot.save('screenshot.png', 'PNG')
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MainWindow()
+    app = QtWidgets.QApplication(sys.argv)
+    window = TransparentWindow()
     window.show()
     sys.exit(app.exec_())
