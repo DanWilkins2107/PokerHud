@@ -85,6 +85,7 @@ class TransparentWindow(QtWidgets.QWidget):
         self.name_zone_labels = []
         self.active_name_zone = 0
         self.remove_name_zone_on_release = False
+        self.default_name_zone_size = {'width': 100, 'height': 50}
 
     def button_mouse_press_event(self, event):
         self.drag_start_pos = event.pos()
@@ -222,8 +223,8 @@ class TransparentWindow(QtWidgets.QWidget):
         name_zone = {
             'x': 10,
             'y': 60,
-            'width': 100,
-            'height': 50
+            'width': self.default_name_zone_size['width'],
+            'height': self.default_name_zone_size['height']
         }
         self.name_zones.append(name_zone)
         self.update_name_zones()
@@ -283,6 +284,8 @@ class TransparentWindow(QtWidgets.QWidget):
                 if self.name_zone_labels[i] == label:
                     self.name_zones[i]['width'] = new_width
                     self.name_zones[i]['height'] = new_height
+                    self.default_name_zone_size['width'] = new_width
+                    self.default_name_zone_size['height'] = new_height
 
     def label_mouse_press_event(self, event, label):
         self.drag_start_pos = event.pos()
