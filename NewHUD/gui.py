@@ -1,6 +1,5 @@
 import sys
 from PyQt5 import QtWidgets, QtCore
-from namezone import NameZone
 
 class TransparentWindow(QtWidgets.QWidget):
     def __init__(self):
@@ -84,6 +83,8 @@ class TransparentWindow(QtWidgets.QWidget):
 
         self.name_zones = []
         self.name_zone_labels = []
+        self.active_name_zone = 0
+        self.remove_name_zone_on_release = False
 
     def button_mouse_press_event(self, event):
         self.drag_start_pos = event.pos()
@@ -226,14 +227,15 @@ class TransparentWindow(QtWidgets.QWidget):
         }
         self.name_zones.append(name_zone)
         self.update_name_zones()
-
+        self.active_name_zone = len(self.name_zones) - 1
+        self.update_name_zones()
 
     def remove_name_zone_clicked(self):
         if self.name_zones:
-            self.name_zones.pop()
+            del self.name_zones[self.active_name_zone]
+            self.active_name_zone = len(self.name_zones) - 1
             self.update_name_zones()
-        print(self.name_zones)
-    
+        
     def update_name_zones(self):
         for label in self.name_zone_labels:
             label.deleteLater()
@@ -241,18 +243,51 @@ class TransparentWindow(QtWidgets.QWidget):
 
         for i, name_zone in enumerate(self.name_zones):
             label = QtWidgets.QLabel(self.container)
-            label.move(name_zone['x'], name_zone['y'])
-            label.resize(name_zone['width'], name_zone['height'])
-            label.setStyleSheet("background-color: rgba(128, 128, 128, 0.5); border: 1px solid black;")
+            label.setGeometry(name_zone['x'], name_zone['y'], name_zone['width'], name_zone['height'])
+            if i == self.active_name_zone:
+                label.setStyleSheet("background-color: rgba(0, 255, 0, 0.7); border: 2px solid rgb(0, 0, 0);")
+            else:
+                label.setStyleSheet("background-color: rgba(255, 255, 255, 0.7); border: 2px solid rgb(0, 0, 0);")
             label.show()
             self.name_zone_labels.append(label)
 
             label.mousePressEvent = lambda event, label=label: self.label_mouse_press_event(event, label)
             label.mouseMoveEvent = lambda event, label=label: self.label_mouse_move_event(event, label)
+            label.mouseReleaseEvent = lambda event, label=label: self.label_mouse_release_event(event, label)
+
+            # Create a resize handle for the label
+            resize_handle = QtWidgets.QLabel(label)
+            resize_handle.move(name_zone['width'] - 20, name_zone['height'] - 20)
+            resize_handle.resize(20, 20)
+            resize_handle.setStyleSheet("background-color: gray;")
+            resize_handle.show()
+
+            # Enable resize for the resize handle
+            resize_handle.mousePressEvent = lambda event, label=label, resize_handle=resize_handle: self.resize_handle_mouse_press_event(event, label, resize_handle)
+            resize_handle.mouseMoveEvent = lambda event, label=label, resize_handle=resize_handle: self.resize_handle_mouse_move_event(event, label, resize_handle)
+            
+    def resize_handle_mouse_press_event(self, event, label, resize_handle):
+        self.resize_start_pos = event.globalPos()
+        self.resize_start_width = label.width()
+        self.resize_start_height = label.height()
+
+    def resize_handle_mouse_move_event(self, event, label, resize_handle):
+        if event.buttons() == QtCore.Qt.LeftButton:
+            delta = event.globalPos() - self.resize_start_pos
+            new_width = max(self.resize_start_width + delta.x(), 20)  # Minimum width is 20
+            new_height = max(self.resize_start_height + delta.y(), 20)  # Minimum height is 20
+            label.resize(new_width, new_height)
+            resize_handle.move(new_width - 20, new_height - 20)
+
+            for i, name_zone in enumerate(self.name_zones):
+                if self.name_zone_labels[i] == label:
+                    self.name_zones[i]['width'] = new_width
+                    self.name_zones[i]['height'] = new_height
 
     def label_mouse_press_event(self, event, label):
         self.drag_start_pos = event.pos()
         self.drag_label = label
+        self.active_name_zone = self.name_zone_labels.index(label)
 
     def label_mouse_move_event(self, event, label):
         if event.buttons() == QtCore.Qt.LeftButton:
@@ -266,6 +301,17 @@ class TransparentWindow(QtWidgets.QWidget):
                     self.name_zones[i]['x'] = new_x
                     self.name_zones[i]['y'] = new_y
 
+                    if new_x < 0 or new_y < 0 or new_x + name_zone['width'] > self.width() or new_y + name_zone['height'] > self.height():
+                        self.remove_name_zone_on_release = True
+                        return
+                    self.remove_name_zone_on_release = False
+                
+
+    def label_mouse_release_event(self, event, label):
+        if self.remove_name_zone_on_release:
+            self.name_zones.pop(self.active_name_zone)
+        self.remove_name_zone_on_release = False
+        self.update_name_zones()
 
     def settings_clicked(self):
         print("Settings clicked")
