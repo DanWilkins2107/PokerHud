@@ -1,5 +1,12 @@
 import sys
+import os
+from PIL import Image
+from imagehash import phash
 from PyQt5 import QtWidgets, QtCore
+import re
+import pytesseract
+
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 class TransparentWindow(QtWidgets.QWidget):
     def __init__(self):
@@ -11,7 +18,6 @@ class TransparentWindow(QtWidgets.QWidget):
         self.bar_height = 60
         self.initial_width = 800
         self.initial_height = 500
-        self.name_zones_confirmed = False
 
         # Make the window frameless and transparent
         self.setWindowFlags(
@@ -83,9 +89,15 @@ class TransparentWindow(QtWidgets.QWidget):
 
         self.name_zones = []
         self.name_zone_labels = []
+        self.name_zone_images = {}
+
+        self.name_zone_editing = False
         self.active_name_zone = 0
         self.remove_name_zone_on_release = False
         self.default_name_zone_size = {'width': 20, 'height': 10}
+
+        self.images_changed = False
+        self.name_strings = []
 
     def button_mouse_press_event(self, event):
         self.drag_start_pos = event.pos()
@@ -109,10 +121,17 @@ class TransparentWindow(QtWidgets.QWidget):
             self.button.resize(new_width, self.bar_height)  # Resize the button to match the new width
             self.resize_handle_br.move(new_width - 20, new_height - 20)  # Move the resize handle to the bottom right corner
             self.resize_handle_bl.move(0, new_height - 20)  # Move the resize handle to the bottom left corner
+
+            # Update positions of all buttons
             self.toggle_sidebar_button.move(10, 10)
             self.toggle_overlay_button.move(170, 10)
             self.edit_name_zones_button.move(new_width - 280, 10)
             self.settings_button.move(new_width - 110, 10)
+
+            self.add_name_zone_button.move(10, 10)
+            self.remove_name_zone_button.move(170, 10)
+            self.confirm_button.move(new_width - 110, 10)
+            self.update_name_zones()
 
     def resize_handle_bl_mouse_press_event(self, event):
         self.resize_start_pos = event.globalPos()
@@ -132,13 +151,22 @@ class TransparentWindow(QtWidgets.QWidget):
             self.button.resize(new_width, self.bar_height)  # Resize the button to match the new width
             self.resize_handle_br.move(new_width - 20, new_height - 20)  # Move the resize handle to the bottom right corner
             self.resize_handle_bl.move(0, new_height - 20)  # Move the resize handle to the bottom left corner
+
+            # Update positions of all buttons
             self.toggle_sidebar_button.move(10, 10)
             self.toggle_overlay_button.move(170, 10)
             self.edit_name_zones_button.move(new_width - 280, 10)
             self.settings_button.move(new_width - 110, 10)
 
+            self.add_name_zone_button.move(10, 10)
+            self.remove_name_zone_button.move(170, 10)
+            self.confirm_button.move(new_width - 110, 10)
+
+            self.update_name_zones()
+
     def toggle_sidebar_clicked(self):
-        print("Toggle sidebar clicked")
+        # For now, print namestrings
+        print(self.name_strings)
 
     def toggle_overlay_clicked(self):
         # For now, take a screenshot
@@ -146,83 +174,59 @@ class TransparentWindow(QtWidgets.QWidget):
         self.take_screenshot()
 
     def edit_name_zones_clicked(self):
-        if not self.name_zones_confirmed:
-            self.toggle_sidebar_button.deleteLater()
-            self.toggle_overlay_button.deleteLater()
-            self.edit_name_zones_button.deleteLater()
-            self.settings_button.deleteLater()
+        self.toggle_sidebar_button.hide()
+        self.toggle_overlay_button.hide()
+        self.edit_name_zones_button.hide()
+        self.settings_button.hide()
 
-            self.add_name_zone_button = QtWidgets.QPushButton("Add Name Zone", self.container)
-            self.add_name_zone_button.move(10, 10)
-            self.add_name_zone_button.resize(150, 40)
-            self.add_name_zone_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
-            self.add_name_zone_button.clicked.connect(self.add_name_zone_clicked)
-            self.add_name_zone_button.show()
+        self.add_name_zone_button = QtWidgets.QPushButton("Add Name Zone", self.container)
+        self.add_name_zone_button.move(10, 10)
+        self.add_name_zone_button.resize(150, 40)
+        self.add_name_zone_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.add_name_zone_button.clicked.connect(self.add_name_zone_clicked)
+        self.add_name_zone_button.show()
 
-            self.remove_name_zone_button = QtWidgets.QPushButton("Remove Name Zone", self.container)
-            self.remove_name_zone_button.move(170, 10)
-            self.remove_name_zone_button.resize(150, 40)
-            self.remove_name_zone_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
-            self.remove_name_zone_button.clicked.connect(self.remove_name_zone_clicked)
-            self.remove_name_zone_button.show()
+        self.remove_name_zone_button = QtWidgets.QPushButton("Remove Name Zone", self.container)
+        self.remove_name_zone_button.move(170, 10)
+        self.remove_name_zone_button.resize(150, 40)
+        self.remove_name_zone_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.remove_name_zone_button.clicked.connect(self.remove_name_zone_clicked)
+        self.remove_name_zone_button.show()
 
-            self.confirm_button = QtWidgets.QPushButton("Confirm", self.container)
-            self.confirm_button.move(self.initial_width - 110, 10)
-            self.confirm_button.resize(100, 40)
-            self.confirm_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
-            self.confirm_button.clicked.connect(self.confirm_clicked)
-            self.confirm_button.show()
+        self.confirm_button = QtWidgets.QPushButton("Confirm", self.container)
+        self.confirm_button.move(self.initial_width - 110, 10)
+        self.confirm_button.resize(100, 40)
+        self.confirm_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.confirm_button.clicked.connect(self.confirm_clicked)
+        self.confirm_button.show()
 
-            self.container.setStyleSheet("background-color: rgba(255, 255, 255, 0.1); border: 2px solid black;")
+        self.container.setStyleSheet("background-color: rgba(255, 255, 255, 0.2); border: 2px solid black;")
 
-            self.name_zones_confirmed = True
-            for label in self.name_zone_labels:
-                label.show()
+        self.name_zone_editing = True
+        for label in self.name_zone_labels:
+            label.show()
 
     def confirm_clicked(self):
-        self.add_name_zone_button.deleteLater()
-        self.remove_name_zone_button.deleteLater()
-        self.confirm_button.deleteLater()
+        self.add_name_zone_button.hide()
+        self.remove_name_zone_button.hide()
+        self.confirm_button.hide()
 
         for label in self.name_zone_labels:
             label.hide()
 
         self.container.setStyleSheet("background-color: transparent; border: 2px solid black;")
 
-        self.name_zones_confirmed = False
+        self.name_zone_editing = False
 
-        self.toggle_sidebar_button = QtWidgets.QPushButton("Toggle Sidebar", self.container)
-        self.toggle_sidebar_button.move(10, 10)
-        self.toggle_sidebar_button.resize(150, 40)
-        self.toggle_sidebar_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
-        self.toggle_sidebar_button.clicked.connect(self.toggle_sidebar_clicked)
         self.toggle_sidebar_button.show()
-
-        self.toggle_overlay_button = QtWidgets.QPushButton("Toggle Overlay", self.container)
-        self.toggle_overlay_button.move(170, 10)
-        self.toggle_overlay_button.resize(150, 40)
-        self.toggle_overlay_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
-        self.toggle_overlay_button.clicked.connect(self.toggle_overlay_clicked)
         self.toggle_overlay_button.show()
-
-        self.edit_name_zones_button = QtWidgets.QPushButton("Edit Name Zones", self.container)
-        self.edit_name_zones_button.move(self.initial_width - 280, 10)
-        self.edit_name_zones_button.resize(160, 40)
-        self.edit_name_zones_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
-        self.edit_name_zones_button.clicked.connect(self.edit_name_zones_clicked)
         self.edit_name_zones_button.show()
-
-        self.settings_button = QtWidgets.QPushButton("Settings", self.container)
-        self.settings_button.move(self.initial_width - 110, 10)
-        self.settings_button.resize(100, 40)
-        self.settings_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
-        self.settings_button.clicked.connect(self.settings_clicked)
         self.settings_button.show()
 
     def add_name_zone_clicked(self):
         name_zone = {
-            'x': 5,  # Relative x position (5%)
-            'y': 15,  # Relative y position (15%)
+            'x': 0,  # Relative x position (5%)
+            'y': 0,  # Relative y position (15%)
             'width': self.default_name_zone_size['width'],  # Relative width
             'height': self.default_name_zone_size['height']  # Relative height
         }
@@ -230,6 +234,7 @@ class TransparentWindow(QtWidgets.QWidget):
         self.update_name_zones()
         self.active_name_zone = len(self.name_zones) - 1
         self.update_name_zones()
+        print(self.name_zones)
 
     def remove_name_zone_clicked(self):
         if self.name_zones:
@@ -243,10 +248,11 @@ class TransparentWindow(QtWidgets.QWidget):
         self.name_zone_labels = []
 
         for i, name_zone in enumerate(self.name_zones):
+            sectionHeight = self.container.height() - self.bar_height
             x = int((name_zone['x'] / 100) * self.container.width())
-            y = int((name_zone['y'] / 100) * self.container.height())
+            y = int((name_zone['y'] / 100) * sectionHeight + self.bar_height) 
             width = int((name_zone['width'] / 100) * self.container.width())
-            height = int((name_zone['height'] / 100) * self.container.height())
+            height = int((name_zone['height'] / 100) * sectionHeight)
 
             label = QtWidgets.QLabel(self.container)
             label.setGeometry(x, y, width, height)
@@ -254,7 +260,8 @@ class TransparentWindow(QtWidgets.QWidget):
                 label.setStyleSheet("background-color: rgba(0, 255, 0, 0.7); border: 2px solid rgb(0, 0, 0);")
             else:
                 label.setStyleSheet("background-color: rgba(255, 255, 255, 0.7); border: 2px solid rgb(0, 0, 0);")
-            label.show()
+            if self.name_zone_editing:
+                label.show()
             self.name_zone_labels.append(label)
 
             label.mousePressEvent = lambda event, label=label: self.label_mouse_press_event(event, label)
@@ -287,10 +294,11 @@ class TransparentWindow(QtWidgets.QWidget):
 
             for i, name_zone in enumerate(self.name_zones):
                 if self.name_zone_labels[i] == label:
+                    section_height = self.container.height() - self.bar_height
                     self.name_zones[i]['width'] = (new_width / self.container.width()) * 100
-                    self.name_zones[i]['height'] = (new_height / self.container.height()) * 100
+                    self.name_zones[i]['height'] = (new_height / section_height) * 100
                     self.default_name_zone_size['width'] = (new_width / self.container.width()) * 100
-                    self.default_name_zone_size['height'] = (new_height / self.container.height()) * 100
+                    self.default_name_zone_size['height'] = (new_height / section_height) * 100
 
     def label_mouse_press_event(self, event, label):
         self.drag_start_pos = event.pos()
@@ -307,16 +315,18 @@ class TransparentWindow(QtWidgets.QWidget):
             for i, name_zone in enumerate(self.name_zones):
                 if self.name_zone_labels[i] == self.drag_label:
                     self.name_zones[i]['x'] = (new_x / self.container.width()) * 100
-                    self.name_zones[i]['y'] = (new_y / self.container.height()) * 100
+                    self.name_zones[i]['y'] = ((new_y - self.bar_height) / (self.container.height() - self.bar_height)) * 100 
 
-                    if new_x < 0 or new_y < 0 or new_x + name_zone['width'] > self.width() or new_y + name_zone['height'] > self.height():
+                    if new_x < 0 or new_y < self.bar_height or self.name_zones[i]['x'] + name_zone['width'] > 100 or self.name_zones[i]['y'] + name_zone['height'] > 100:
                         self.remove_name_zone_on_release = True
                         return
                     self.remove_name_zone_on_release = False
                 
+
     def label_mouse_release_event(self, event, label):
         if self.remove_name_zone_on_release:
             self.name_zones.pop(self.active_name_zone)
+            self.active_name_zone = len(self.name_zones) - 1
         self.remove_name_zone_on_release = False
         self.update_name_zones()
 
@@ -326,7 +336,64 @@ class TransparentWindow(QtWidgets.QWidget):
     def take_screenshot(self):
         screen = QtWidgets.QApplication.screenAt(self.pos())
         screenshot = screen.grabWindow(0, self.x(), self.y(), self.width(), self.height())
-        screenshot.save('screenshot.png', 'PNG')
+
+        for i, name_zone in enumerate(self.name_zones):
+            x = int((name_zone['x'] / 100) * self.container.width())
+            y = int((name_zone['y'] / 100) * (self.container.height() - self.bar_height)) + self.bar_height
+            width = int((name_zone['width'] / 100) * self.container.width())
+            height = int((name_zone['height'] / 100) * (self.container.height() - self.bar_height))
+
+            cropped_screenshot = screenshot.copy(x, y, width, height)
+
+            if not os.path.exists('images'):
+                os.makedirs('images')
+
+            filename = f'images/namezone_{i+1}.png'
+            cropped_screenshot.save(filename, 'PNG')
+
+            img_hash = phash(Image.open(filename))
+            if i in self.name_zone_images:
+                if self.name_zone_images[i] != img_hash:
+                    self.image_changed(i)
+                    self.images_changed = True
+            else:
+                self.image_added(i)
+                self.images_changed = True
+
+            self.name_zone_images[i] = img_hash
+
+        # Remove any images where the namezone no longer exists
+        for filename in os.listdir('images'):
+            match = re.match(r'namezone_(\d+)\.png', filename)
+            if match:
+                index = int(match.group(1)) - 1
+                if index >= len(self.name_zones):
+                    os.remove(os.path.join('images', filename))
+                    self.image_removed(index)
+            else:
+                os.remove(os.path.join('images', filename))
+
+        if self.images_changed:
+            print("Images changed")
+            self.run_tesseract()
+            self.images_changed = False
+
+    def run_tesseract(self):
+        self.name_strings = []
+        for i in range(len(self.name_zones)):
+            filename = f'images/namezone_{i+1}.png'
+            img = Image.open(filename)
+            text = pytesseract.image_to_string(img)
+            self.name_strings.append(text.strip())
+
+    def image_changed(self, index):
+            print(f"Image {index + 1} changed")
+
+    def image_added(self, index):
+            print(f"Image {index + 1} added")
+
+    def image_removed(self, index):
+            print(f"Image {index + 1} removed")
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
