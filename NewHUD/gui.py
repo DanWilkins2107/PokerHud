@@ -5,6 +5,8 @@ from imagehash import phash
 from PyQt5 import QtWidgets, QtCore
 import re
 import pytesseract
+import threading
+import time
 
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
@@ -67,6 +69,27 @@ class TransparentWindow(QtWidgets.QWidget):
         self.settings_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
         self.settings_button.clicked.connect(self.settings_clicked)
 
+        self.add_name_zone_button = QtWidgets.QPushButton("Add Name Zone", self.container)
+        self.add_name_zone_button.move(10, 10)
+        self.add_name_zone_button.resize(150, 40)
+        self.add_name_zone_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.add_name_zone_button.clicked.connect(self.add_name_zone_clicked)
+        self.add_name_zone_button.hide()
+
+        self.remove_name_zone_button = QtWidgets.QPushButton("Remove Name Zone", self.container)
+        self.remove_name_zone_button.move(170, 10)
+        self.remove_name_zone_button.resize(150, 40)
+        self.remove_name_zone_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.remove_name_zone_button.clicked.connect(self.remove_name_zone_clicked)
+        self.remove_name_zone_button.hide()
+
+        self.confirm_button = QtWidgets.QPushButton("Confirm", self.container)
+        self.confirm_button.move(self.initial_width - 110, 10)
+        self.confirm_button.resize(100, 40)
+        self.confirm_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
+        self.confirm_button.clicked.connect(self.confirm_clicked)
+        self.confirm_button.hide()
+
         # Create a resize handle (bottom right)
         self.resize_handle_br = QtWidgets.QLabel(self.container)
         self.resize_handle_br.move(self.initial_width - 20, self.initial_height - 20)  # Set the initial position of the resize handle
@@ -98,7 +121,10 @@ class TransparentWindow(QtWidgets.QWidget):
 
         self.images_changed = False
         self.name_strings = []
-
+        self.screenshots_running = True
+        self.screenshot_thread = threading.Thread(target=self.take_screenshots)
+        self.screenshot_thread.start()
+        
     def button_mouse_press_event(self, event):
         self.drag_start_pos = event.pos()
 
@@ -174,30 +200,14 @@ class TransparentWindow(QtWidgets.QWidget):
         self.take_screenshot()
 
     def edit_name_zones_clicked(self):
+        self.screenshots_running = False
         self.toggle_sidebar_button.hide()
         self.toggle_overlay_button.hide()
         self.edit_name_zones_button.hide()
         self.settings_button.hide()
 
-        self.add_name_zone_button = QtWidgets.QPushButton("Add Name Zone", self.container)
-        self.add_name_zone_button.move(10, 10)
-        self.add_name_zone_button.resize(150, 40)
-        self.add_name_zone_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
-        self.add_name_zone_button.clicked.connect(self.add_name_zone_clicked)
         self.add_name_zone_button.show()
-
-        self.remove_name_zone_button = QtWidgets.QPushButton("Remove Name Zone", self.container)
-        self.remove_name_zone_button.move(170, 10)
-        self.remove_name_zone_button.resize(150, 40)
-        self.remove_name_zone_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
-        self.remove_name_zone_button.clicked.connect(self.remove_name_zone_clicked)
         self.remove_name_zone_button.show()
-
-        self.confirm_button = QtWidgets.QPushButton("Confirm", self.container)
-        self.confirm_button.move(self.initial_width - 110, 10)
-        self.confirm_button.resize(100, 40)
-        self.confirm_button.setStyleSheet("background-color: #4CAF50; border-radius: 10px;")
-        self.confirm_button.clicked.connect(self.confirm_clicked)
         self.confirm_button.show()
 
         self.container.setStyleSheet("background-color: rgba(255, 255, 255, 0.2); border: 2px solid black;")
@@ -207,6 +217,7 @@ class TransparentWindow(QtWidgets.QWidget):
             label.show()
 
     def confirm_clicked(self):
+        self.screenshots_running = True
         self.add_name_zone_button.hide()
         self.remove_name_zone_button.hide()
         self.confirm_button.hide()
@@ -333,31 +344,45 @@ class TransparentWindow(QtWidgets.QWidget):
     def settings_clicked(self):
         print("Settings clicked")
 
+    def take_screenshots(self):
+        while True:
+            if self.screenshots_running:
+                self.take_screenshot()
+            time.sleep(2)
+
     def take_screenshot(self):
         screen = QtWidgets.QApplication.screenAt(self.pos())
         screenshot = screen.grabWindow(0, self.x(), self.y(), self.width(), self.height())
 
-        for i, name_zone in enumerate(self.name_zones):
-            x = int((name_zone['x'] / 100) * self.container.width())
-            y = int((name_zone['y'] / 100) * (self.container.height() - self.bar_height)) + self.bar_height
-            width = int((name_zone['width'] / 100) * self.container.width())
-            height = int((name_zone['height'] / 100) * (self.container.height() - self.bar_height))
+        # Save the screenshot to a temporary file
+        screenshot.save('temp_screenshot.png', 'PNG')
 
-            cropped_screenshot = screenshot.copy(x, y, width, height)
+        # Open the screenshot and resize it
+        img = Image.open('temp_screenshot.png')
+        new_width = 1024
+        new_height = 768
+        img = img.resize((new_width, new_height))
+
+        for i, name_zone in enumerate(self.name_zones):
+            x = int((name_zone['x'] / 100) * new_width)
+            y = int((name_zone['y'] / 100) * (new_height - self.bar_height)) + self.bar_height
+            width = int((name_zone['width'] / 100) * new_width)
+            height = int((name_zone['height'] / 100) * (new_height - self.bar_height))
+
+            # Crop the resized image
+            cropped_img = img.crop((x, y, x + width, y + height))
 
             if not os.path.exists('images'):
                 os.makedirs('images')
 
             filename = f'images/namezone_{i+1}.png'
-            cropped_screenshot.save(filename, 'PNG')
+            cropped_img.save(filename, 'PNG')
 
             img_hash = phash(Image.open(filename))
             if i in self.name_zone_images:
                 if self.name_zone_images[i] != img_hash:
-                    self.image_changed(i)
                     self.images_changed = True
             else:
-                self.image_added(i)
                 self.images_changed = True
 
             self.name_zone_images[i] = img_hash
@@ -369,12 +394,10 @@ class TransparentWindow(QtWidgets.QWidget):
                 index = int(match.group(1)) - 1
                 if index >= len(self.name_zones):
                     os.remove(os.path.join('images', filename))
-                    self.image_removed(index)
             else:
                 os.remove(os.path.join('images', filename))
 
         if self.images_changed:
-            print("Images changed")
             self.run_tesseract()
             self.images_changed = False
 
@@ -385,15 +408,7 @@ class TransparentWindow(QtWidgets.QWidget):
             img = Image.open(filename)
             text = pytesseract.image_to_string(img)
             self.name_strings.append(text.strip())
-
-    def image_changed(self, index):
-            print(f"Image {index + 1} changed")
-
-    def image_added(self, index):
-            print(f"Image {index + 1} added")
-
-    def image_removed(self, index):
-            print(f"Image {index + 1} removed")
+        print(self.name_strings)
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
